@@ -73,35 +73,28 @@ if __name__ == '__main__':
     config.read('authentication.ini')
     bing_api_key = config['auth']['bing_api_key']
 
-    save_dir_path = '/root/share/local_data/sandbox'
+    save_dir_path = 'img'
     make_dir(save_dir_path)
 
-    num_imgs_required = 300 # Number of images you want.
-    num_imgs_per_transaction = 150 # default 30, Max 150 images
+    num_imgs_required = 1000 # Number of images you want.
+    num_imgs_per_transaction = 50 # default 30, Max 150 images
     offset_count = math.floor(num_imgs_required / num_imgs_per_transaction)
 
     url_list = []
     correspondence_table = {}
 
-    headers = {
-        # Request headers
-        'Content-Type': 'multipart/form-data',
-        'Ocp-Apim-Subscription-Key': bing_api_key, # API key
-    }
-
     for offset in range(offset_count):
-
-        params = urllib.parse.urlencode({
-            # Request parameters
-            'q': '猫',
-            'mkt': 'ja-JP',
-            'count': num_imgs_per_transaction,
-            'offset': offset * num_imgs_per_transaction # increment offset by 'num_imgs_per_transaction' (for example 0, 150, 300)
-        })
+        q = urllib.parse.quote('試乗車')
+        mkt = 'ja-JP'
+        count = str(num_imgs_per_transaction)
+        offset = str(offset * num_imgs_per_transaction)
+        imageType = "Photo"
 
         try:
+            headers = {'Ocp-Apim-Subscription-Key': bing_api_key}
             conn = http.client.HTTPSConnection('api.cognitive.microsoft.com')
-            conn.request("POST", "/bing/v5.0/images/search?%s" % params, "{body}", headers)
+            query = "?q=" + q + "&mkt=" + mkt + "&count=" + count + "&offset=" + offset + "&imageType=" + imageType
+            conn.request("GET", "/bing/v7.0/images/search" + query, headers=headers)
             response = conn.getresponse()
             data = response.read()
 
@@ -123,19 +116,21 @@ if __name__ == '__main__':
             for values in data['value']:
                 unquoted_url = urllib.parse.unquote(values['contentUrl'])
                 img_url = re.search(pattern, unquoted_url)
-                if img_url:
-                    url_list.append(img_url.group(1))
+                print(unquoted_url)
+                if unquoted_url:
+                    url_list.append(unquoted_url)
 
     for url in url_list:
         try:
             img_path = make_img_path(save_dir_path, url)
             image = download_image(url)
             save_image(img_path, image)
-            print('saved image... {}'.format(url))
+            print("img_path:" + str(img_path))
+            print("saved image..." + str(url))
         except KeyboardInterrupt:
             break
         except Exception as err:
-            print("%s" % (err))
+            print("Exception:: %s" % (err))
 
     correspondence_table_path = os.path.join(save_dir_path, 'corr_table')
     make_dir(correspondence_table_path)
